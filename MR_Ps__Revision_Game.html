@@ -1,0 +1,726 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Boot Sequence Challenge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a BIOS setup utility screen — one framed console panel, menu bar on top, status line at the bottom. Single deliberate dark-blue theme. */
+:root{
+  --bios:#0b2a8a;        /* BIOS blue ground */
+  --bios-deep:#071d63;   /* panel inset */
+  --chrome:#b9c0cf;      /* grey menu bar */
+  --ink:#eef1ff;         /* main text */
+  --dim:#9fb0e6;         /* secondary text */
+  --hi:#ffe14d;          /* BIOS yellow highlight */
+  --ok:#5ee08a; --bad:#ff6b6b;
+  --bronze:#d08a4c; --silver:#cfd6e3; --gold:#ffd23f; --plat:#8ff3ff;
+  --f-display:"VT323","IBM Plex Mono",ui-monospace,monospace;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bios);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px;box-sizing:border-box}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.frame{max-width:980px;margin:0 auto;border:3px double var(--chrome);background:var(--bios);min-height:calc(100% - 4px);display:flex;flex-direction:column}
+.menubar{background:var(--chrome);color:var(--bios-deep);font-family:var(--f-display);font-size:24px;display:flex;flex-wrap:wrap;gap:0 22px;padding:2px 14px;align-items:center}
+.menubar b{font-weight:400;color:var(--bios)}
+.menubar .sp{flex:1}
+.menubar .who{font-size:20px}
+main{flex:1;padding:22px clamp(14px,3vw,30px);display:flex;flex-direction:column;gap:18px;min-width:0}
+.status{border-top:1px solid var(--dim);font-family:var(--f-mono);font-size:13px;color:var(--dim);padding:6px 14px;display:flex;flex-wrap:wrap;gap:6px 22px}
+.status kbd{color:var(--hi);font-family:inherit}
+h1,h2{font-family:var(--f-display);font-weight:400;margin:0;line-height:1;text-wrap:balance;letter-spacing:.5px}
+h1{font-size:clamp(46px,8vw,78px);color:var(--hi)}
+h2{font-size:clamp(30px,5vw,42px);color:var(--hi)}
+p{margin:0;max-width:65ch}
+.lede{color:var(--dim)}
+.post{font-family:var(--f-mono);font-size:14px;color:var(--dim);white-space:pre-wrap;min-height:5.2em}
+.post .okw{color:var(--ok)}
+label.f{display:flex;flex-direction:column;gap:6px;font-family:var(--f-mono);font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+input[type=text]{font:600 18px var(--f-body);background:var(--bios-deep);color:var(--ink);border:2px solid var(--chrome);padding:10px 12px;width:min(340px,100%)}
+input:focus-visible,button:focus-visible{outline:3px solid var(--hi);outline-offset:2px}
+.section-label{font-family:var(--f-mono);font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.mode{all:unset;cursor:pointer;border:2px solid var(--dim);background:var(--bios-deep);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.mode:hover,.mode:focus-visible{border-color:var(--hi);background:#0e2f99}
+.mode .k{font-family:var(--f-display);font-size:30px;color:var(--hi);line-height:1}
+.mode .d{font-size:14px;color:var(--dim)}
+.mode .spec{font-family:var(--f-mono);font-size:12px;color:var(--ink);opacity:.75}
+.hud{display:flex;flex-wrap:wrap;gap:8px 24px;font-family:var(--f-display);font-size:26px;align-items:baseline}
+.hud .v{color:var(--hi)}
+.timer{height:10px;background:var(--bios-deep);border:1px solid var(--dim)}
+.timer i{display:block;height:100%;background:var(--hi);width:100%;transition:width .1s linear}
+.timer.low i{background:var(--bad)}
+.card{background:var(--bios-deep);border:2px solid var(--chrome);padding:20px clamp(14px,3vw,26px);display:flex;flex-direction:column;gap:16px}
+.q{font-size:clamp(19px,2.6vw,24px);font-weight:600;line-height:1.3;max-width:none}
+.tag{font-family:var(--f-mono);font-size:12px;text-transform:uppercase;letter-spacing:.1em;padding:2px 8px;border:1px solid currentColor;align-self:flex-start}
+.t-B{color:var(--bronze)}.t-S{color:var(--silver)}.t-G{color:var(--gold)}.t-P{color:var(--plat)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.opt{all:unset;cursor:pointer;display:flex;gap:12px;align-items:center;padding:12px 14px;border:2px solid var(--dim);font-size:17px;background:var(--bios)}
+.opt .n{font-family:var(--f-display);font-size:24px;color:var(--hi);min-width:1ch}
+.opt:hover:not([disabled]),.opt:focus-visible{border-color:var(--hi)}
+.opt.right{border-color:var(--ok);background:#0b4a3a}
+.opt.wrong{border-color:var(--bad);background:#4a1630}
+.opt[disabled]{cursor:default}
+.item{font-family:var(--f-display);font-size:clamp(44px,8vw,68px);color:var(--ink);text-align:center;line-height:1.05;padding:10px 0}
+.bins{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.bin{all:unset;cursor:pointer;text-align:center;padding:16px 10px;border:2px solid var(--chrome);font-family:var(--f-display);font-size:28px;color:var(--hi);background:var(--bios)}
+.bin small{display:block;font-family:var(--f-mono);font-size:12px;color:var(--dim)}
+.bin:hover:not([disabled]),.bin:focus-visible{background:#163ba8}
+.bin.right{border-color:var(--ok);background:#0b4a3a}.bin.wrong{border-color:var(--bad);background:#4a1630}
+.fb{font-size:15px;min-height:2.9em;color:var(--dim)}
+.fb b.g{color:var(--ok)}.fb b.r{color:var(--bad)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{all:unset;cursor:pointer;font-family:var(--f-display);font-size:26px;padding:6px 18px;background:var(--chrome);color:var(--bios-deep)}
+.btn:hover,.btn:focus-visible{background:var(--hi)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--dim)}
+.rank{font-family:var(--f-display);font-size:clamp(56px,10vw,92px);line-height:1}
+.big{font-family:var(--f-display);font-size:clamp(40px,7vw,64px);color:var(--hi);line-height:1}
+.tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-family:var(--f-mono);font-size:13px}
+.tiers div{border:1px solid currentColor;padding:8px 10px}
+.review{font-size:14px;display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;padding-right:6px}
+.review div{border-left:3px solid var(--bad);padding:4px 10px;background:var(--bios-deep)}
+.combo{color:var(--hi);font-family:var(--f-display);font-size:24px}
+.code{font-family:var(--f-mono);font-size:clamp(26px,5vw,38px);color:var(--hi);background:var(--bios-deep);border:2px dashed var(--hi);padding:8px 16px;letter-spacing:.06em;user-select:all}
+.coderow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.teach-link{all:unset;cursor:pointer;font-family:var(--f-mono);font-size:13px;color:var(--dim);text-decoration:underline;align-self:flex-start}
+.teach-link:hover,.teach-link:focus-visible{color:var(--hi)}
+textarea{width:100%;min-height:150px;font:14px/1.4 var(--f-mono);background:var(--bios-deep);color:var(--ink);border:2px solid var(--chrome);padding:10px}
+.steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:4px;font-size:15px;max-width:70ch}
+.tbl-wrap{overflow-x:auto;border:2px solid var(--chrome)}
+table.lb{border-collapse:collapse;width:100%;min-width:620px;font-variant-numeric:tabular-nums}
+.lb th{background:var(--chrome);color:var(--bios-deep);font-family:var(--f-display);font-weight:400;font-size:22px;text-align:left;padding:4px 10px}
+.lb td{padding:7px 10px;border-top:1px solid #23439f;font-size:16px}
+.lb td.n{text-align:right;font-family:var(--f-mono)}
+.lb tr.top1 td{color:var(--gold)}.lb tr.top2 td{color:var(--silver)}.lb tr.top3 td{color:var(--bronze)}
+.lb .pos{font-family:var(--f-display);font-size:26px;width:3ch}
+.lb .flag{color:var(--bad);font-size:12px;font-family:var(--f-mono)}
+.proj .lb td{font-size:24px;padding:10px 14px}.proj .lb th{font-size:30px}.proj .lb .pos{font-size:36px}
+.note{font-size:13px;color:var(--dim)}
+table.lb{min-width:720px}
+.mode.arc{border-color:var(--ok)}
+.mode.arc .k{color:var(--ok)}
+.mode.arc.locked{border-style:dashed;border-color:var(--dim)}
+.mode.arc.locked .k{color:var(--dim)}
+.unlock-msg{font-family:var(--f-display);font-size:28px;color:var(--ok);border:2px solid var(--ok);padding:6px 12px;align-self:flex-start}
+.prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.prog div{border:1px solid var(--dim);padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:var(--bios-deep)}
+.prog b{font-family:var(--f-display);font-weight:400;font-size:26px}
+.prog .done b{color:var(--ok)}.prog .todo b{color:var(--dim)}
+.arena{position:relative;align-self:center;width:min(100%,560px)}
+.arena canvas{display:block;width:100%;height:auto;border:2px solid var(--chrome);background:#050f38;touch-action:none}
+.ov{position:absolute;inset:0;background:rgba(5,15,56,.95);display:flex;flex-direction:column;gap:12px;padding:16px;overflow:auto;border:2px solid var(--hi)}
+.ov .opts{grid-template-columns:1fr}
+.ov .opt{font-size:15px;padding:9px 12px}
+.ov .q{font-size:17px}
+.ov h2{font-size:34px}
+.pad{display:grid;grid-template-columns:repeat(3,58px);grid-template-rows:repeat(2,52px);gap:6px;align-self:center}
+.pad button{all:unset;cursor:pointer;background:var(--bios-deep);border:2px solid var(--chrome);color:var(--hi);font-size:22px;text-align:center;line-height:48px}
+.pad button:active{background:var(--hi);color:var(--bios-deep)}
+.pad .u{grid-column:2}.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--dim);justify-content:center}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:6px;vertical-align:middle}
+@keyframes flash{0%{transform:scale(1.25)}100%{transform:scale(1)}}
+.pop{display:inline-block;animation:flash .25s ease-out}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}.timer i{transition:none}}
+</style>
+
+<div class="frame">
+  <div class="menubar"><span><b>Main</b></span><span>Hardware</span><span>Software</span><span>Storage</span><span class="sp"></span><span class="who" id="who">KS3 Computing</span></div>
+  <main id="app"></main>
+  <div class="status" id="status"><span><kbd>1–4</kbd> Select answer</span><span><kbd>Enter</kbd> Next</span><span><kbd>Esc</kbd> Quit to menu</span><span>F10 Save &amp; Exit (just kidding)</span></div>
+</div>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const app=$("#app");
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const TIERS={B:"Bronze",S:"Silver",G:"Gold",P:"Platinum"};
+
+/* ---------- CONTENT (mapped to the spec) ---------- */
+const SORTS=[
+ {title:"Input, output or storage?",bins:["Input","Output","Storage"],items:[
+  ["Keyboard",0,"You type data in."],["Mouse",0,"Sends movement and clicks in."],["Microphone",0,"Captures sound and sends it in."],["Scanner",0,"Turns paper into a digital image."],["Webcam",0,"Captures images or video as input."],
+  ["Monitor",1,"Displays information to the user."],["Printer",1,"Produces a hard copy."],["Speakers",1,"Play sound out loud."],["Headphones",1,"Play sound privately."],
+  ["Hard disk drive",2,"Stores data magnetically."],["USB pen drive",2,"Portable flash storage."],["SD card",2,"Flash storage for cameras and phones."],["Solid state drive",2,"Fast flash storage."],["DVD",2,"Optical storage."]]},
+ {title:"System or application software?",bins:["System","Application"],items:[
+  ["Windows 11",0,"An operating system."],["Linux",0,"An open source operating system."],["Antivirus",0,"A utility that protects the computer."],["Firewall",0,"A security utility."],["Disk defragmenter",0,"A disk management utility."],["Device driver",0,"Lets the OS control hardware."],["Backup tool",0,"A utility that copies data for safety."],["Automatic updater",0,"A system maintenance utility."],
+  ["Word processor",1,"Helps the user write documents."],["Spreadsheet",1,"Helps the user calculate and chart data."],["Web browser",1,"Lets the user view web pages."],["Image editor",1,"Lets the user edit photos."],["Presentation software",1,"Lets the user build slideshows."],["Database",1,"Stores and searches records."],["IDE",1,"A tool for writing and testing code."]]},
+ {title:"Magnetic, optical or flash?",bins:["Magnetic","Optical","Flash"],items:[
+  ["Hard disk drive",0,"Spinning magnetic platters."],["Tape drive",0,"Magnetic tape, used for big backups."],
+  ["CD-ROM",1,"Read by a laser."],["DVD",1,"Read by a laser, holds more than a CD."],["Blu-ray",1,"Read by a blue laser."],
+  ["Solid state drive",2,"No moving parts, flash chips."],["SD card",2,"Flash memory card."],["USB pen drive",2,"Flash memory stick."]]},
+ {title:"Primary or secondary storage?",bins:["Primary","Secondary"],items:[
+  ["RAM",0,"Holds programs and data in use right now."],["Cache",0,"Tiny, very fast memory inside or next to the CPU."],["ROM",0,"Holds the start-up (boot) instructions."],
+  ["Hard disk drive",1,"Keeps files when the power is off."],["Solid state drive",1,"Keeps files when the power is off."],["USB pen drive",1,"Portable long-term storage."],["DVD",1,"Optical long-term storage."],["SD card",1,"Long-term flash storage."]]},
+ {title:"Open source or proprietary?",bins:["Open source","Proprietary"],items:[
+  ["Linux",0,"Source code is free to view and change."],["Ubuntu",0,"A free Linux distribution."],["Android",0,"Built on the open source Android project."],["LibreOffice",0,"Free, open source office suite."],
+  ["Windows",1,"Owned by Microsoft; code is secret."],["macOS",1,"Owned by Apple."],["iOS",1,"Owned by Apple."],["Microsoft Word",1,"Paid licence, closed code."]]}
+];
+
+const QUIZ=[
+ ["B","Which of these is an INPUT device?",["Keyboard","Monitor","Printer","Speakers"],0,"A keyboard sends data into the computer."],
+ ["B","Which of these is an OUTPUT device?",["Microphone","Scanner","Printer","Mouse"],2,"A printer produces a hard copy for the user."],
+ ["B","What is the main circuit board that connects all the parts together?",["CPU","Motherboard","RAM","BIOS"],1,"The motherboard connects the CPU, RAM, storage and ports."],
+ ["B","Which part is often called the 'brain' of the computer?",["Hard disk","RAM","CPU","Monitor"],2,"The CPU processes instructions."],
+ ["B","Which device would you use to turn a paper worksheet into a digital file?",["Printer","Scanner","Speaker","Monitor"],1,"A scanner captures a printed page as an image."],
+ ["B","Which of these is an example of an operating system?",["Microsoft Word","Google Chrome","Windows","Photoshop"],2,"Windows manages the hardware and software."],
+ ["B","What does RAM stand for?",["Random Access Memory","Read Access Memory","Rapid Action Memory","Run All Memory"],0,"Random Access Memory."],
+ ["B","Which software would you use to create a budget with formulas?",["Word processor","Spreadsheet","Web browser","Image editor"],1,"Spreadsheets do calculations with formulas."],
+ ["S","What happens to data in RAM when the computer is switched off?",["It is saved","It is lost","It moves to ROM","It is backed up"],1,"RAM is volatile, so its contents are lost."],
+ ["S","What is the job of the BIOS?",["Edit photos","Start the computer and check hardware","Store your homework","Connect to Wi‑Fi"],1,"The BIOS runs when you power on, checks hardware and starts loading the OS."],
+ ["S","Why do we need secondary storage?",["To make the CPU faster","To keep data when the power is off","To display images","To cool the computer"],1,"Secondary storage is non-volatile."],
+ ["S","Which is an example of OPEN SOURCE software?",["Windows","macOS","Linux","iOS"],2,"Linux's source code is free to view and modify."],
+ ["S","What does a device driver do?",["Lets the OS communicate with a piece of hardware","Drives the hard disk faster","Removes viruses","Speeds up the internet"],0,"Drivers translate between the OS and hardware."],
+ ["S","Which type of software is an antivirus program?",["Application software","Utility (system) software","Programming language","Firmware game"],1,"Antivirus is a security utility."],
+ ["S","Which storage is a TAPE DRIVE?",["Optical","Flash","Magnetic","Primary"],2,"Tape stores data magnetically."],
+ ["S","What is an IDE used for?",["Editing videos","Writing and testing program code","Browsing the web","Sending emails"],1,"An Integrated Development Environment helps you write, run and debug code."],
+ ["S","Which memory holds the start-up instructions and cannot easily be changed?",["RAM","Cache","ROM","SSD"],2,"ROM is read-only and non-volatile."],
+ ["G","Why does cache make a computer faster?",["It stores the whole hard disk","It holds frequently used instructions very close to the CPU","It cools the CPU","It adds more RAM"],1,"The CPU can get data from cache much faster than from RAM."],
+ ["G","Which is NOT a function of an operating system?",["Managing memory","Managing hardware through drivers","Writing your essay for you","Scheduling CPU time"],2,"The OS manages resources; writing essays is a job for application software."],
+ ["G","A disk is badly fragmented. Which utility helps?",["Firewall","Defragmenter","Anti-spyware","Web browser"],1,"Defragmentation puts the pieces of files back together on a hard disk."],
+ ["G","Why are SSDs faster than HDDs?",["They spin faster","They have no moving parts","They use lasers","They are bigger"],1,"Flash storage has no read head to move."],
+ ["G","Which is the main disadvantage of proprietary software?",["It never gets updates","It usually costs money and you can't change the code","It cannot run on computers","It has no support"],1,"You pay for a licence and the source code is closed."],
+ ["G","Order these from FASTEST to SLOWEST:",["Cache, RAM, SSD","RAM, cache, SSD","SSD, RAM, cache","SSD, cache, RAM"],0,"Cache is fastest, then RAM, then secondary storage."],
+ ["G","Which utility checks for and installs fixes to software?",["Automatic updating","Formatting","Disk clean-up","Firewall"],0,"Automatic updating is a system maintenance utility."],
+ ["P","A PC with 4 GB RAM slows down when 20 browser tabs are open. What is the best explanation?",["The CPU is broken","RAM is full so data is swapped to slower secondary storage","The monitor is too small","The BIOS is out of date"],1,"When RAM runs out the OS uses disk space as virtual memory, which is much slower."],
+ ["P","What does formatting a disk do?",["Defragments files","Prepares it for use by setting up a file system, wiping existing data","Speeds up the CPU","Encrypts the files"],1,"Formatting creates a fresh file system."],
+ ["P","Why might a school choose Linux for its servers?",["It looks nicer","It is free and can be customised","It only runs games","It needs no hardware"],1,"No licence costs and the code can be adapted."],
+ ["P","Which statement about ROM and RAM is TRUE?",["Both are volatile","ROM is volatile, RAM is not","RAM is volatile, ROM is not","Neither is primary storage"],2,"RAM loses data without power; ROM keeps it."],
+];
+
+const SCEN=[
+ ["B","You need to hand your homework to a teacher on a different computer.",["USB pen drive","Tape drive","RAM","ROM"],0,"Small, cheap and very portable."],
+ ["B","A digital camera needs tiny, removable storage.",["DVD","SD card","Hard disk drive","Tape drive"],1,"SD cards are small, light and durable."],
+ ["S","A gamer wants games to load as fast as possible.",["Hard disk drive","DVD","Solid state drive","Tape drive"],2,"SSDs have the fastest read speeds of these."],
+ ["S","A family PC needs 4 TB of storage for photos and videos as cheaply as possible.",["Solid state drive","Hard disk drive","SD card","CD-ROM"],1,"HDDs give the lowest cost per gigabyte."],
+ ["S","A shop sells films on a physical disc.",["DVD","Tape drive","RAM","SSD"],0,"Optical discs are cheap to mass-produce."],
+ ["G","A bank backs up ALL of its data every night and keeps it for years.",["USB pen drive","Tape drive","SD card","DVD"],1,"Tape has huge capacity and a very low cost per GB; speed doesn't matter for archives."],
+ ["G","A laptop must survive being dropped in a school bag.",["Hard disk drive","Solid state drive","Tape drive","CD-ROM"],1,"No moving parts means SSDs are more robust."],
+ ["G","Which TWO characteristics matter most for a tape backup?",["Speed and portability","Capacity and cost","Portability and speed","Colour and size"],1,"Archive backups need lots of space, cheaply."],
+ ["P","A video editor works on huge files and also needs cheap long-term archive space. Best set-up?",["One DVD","SSD for current projects plus HDD for archive","Only RAM","Only an SD card"],1,"Fast SSD for live work, cheap high-capacity HDD for storage."],
+ ["P","A phone has 8 GB RAM and 256 GB flash storage. Why is the flash storage so much bigger?",["Flash is faster than RAM","Flash is cheaper per GB and non-volatile, so it stores everything long-term","RAM is secondary storage","RAM is not needed"],1,"RAM is fast but expensive and volatile; secondary storage holds everything you keep."],
+];
+
+const HELP=[
+ ["B","TICKET: \"I plugged my new printer into my laptop and nothing happens. The laptop doesn't recognise it.\"",["Install the printer's device driver","Buy more RAM","Defragment the disk","Format the laptop"],0,"The OS needs a driver to communicate with new hardware."],
+ ["B","TICKET: \"A pop-up says one of my downloads contains a virus.\"",["Run a full antivirus scan","Turn the monitor off","Open the file to check","Install a word processor"],0,"Antivirus finds, quarantines and removes malicious files."],
+ ["B","TICKET: \"My video is playing but I can't hear anything.\"",["Check the speakers or headphones are connected and not muted","Replace the CPU","Run a defragmenter","Format the hard disk"],0,"Speakers and headphones are the output devices for sound."],
+ ["S","TICKET: \"My browser keeps showing adverts, and I think something is tracking what I type.\"",["Run anti-spyware / anti-malware","Defragment the disk","Upgrade the monitor","Install a spreadsheet"],0,"Spyware secretly records activity; anti-spyware removes it."],
+ ["S","TICKET: \"Someone outside the school keeps trying to connect to my PC over the network.\"",["Turn on the firewall","Add more cache","Format a USB stick","Install a presentation app"],0,"A firewall blocks unauthorised network connections."],
+ ["S","TICKET: \"My old PC with a hard disk drive has got slower and slower over the years.\"",["Defragment the hard disk","Run the firewall","Install a new keyboard","Delete the BIOS"],0,"Defragmentation puts scattered parts of files back together on magnetic disks."],
+ ["S","TICKET: \"My hard drive died and I lost my whole coursework project!\"",["Restore it from a backup","Run antivirus","Update the BIOS","Plug in a webcam"],0,"Regular backups are the only way to recover from a failed drive."],
+ ["S","TICKET: \"My laptop keeps asking to restart to install security fixes. Can I ignore it?\"",["No. Let automatic updating install the fixes","Yes, updates are just adverts","Turn off the firewall instead","Remove the RAM"],0,"Updates patch security holes and fix bugs."],
+ ["G","TICKET: \"I just bought a USB stick and my computer says it can't read it. It's empty anyway.\"",["Format the drive so it has a file system the OS can use","Defragment it","Install a driver for the monitor","Upgrade the CPU"],0,"Formatting sets up a file system (and wipes any data)."],
+ ["G","TICKET: \"My laptop says storage is full, but I've hardly saved anything. There are gigabytes of temporary files.\"",["Run a system clean-up tool","Buy a faster CPU","Turn on the firewall","Install an IDE"],0,"Clean-up tools delete temporary and junk files to free space."],
+ ["G","TICKET: \"When I have lots of programs and tabs open the whole computer crawls.\"",["Add more RAM","Buy a bigger monitor","Install a scanner","Run anti-spyware"],0,"More RAM lets more programs stay in fast primary memory at once."],
+ ["G","TICKET: \"My PC beeps when I switch it on and won't load Windows.\"",["The BIOS start-up check found a hardware fault, so check the components are connected","The printer is out of ink","The web browser needs updating","The spreadsheet has an error"],0,"The BIOS tests hardware before loading the OS; beeps signal a fault."],
+ ["G","TICKET: \"I need to know what CPU and how much RAM my computer has before buying a game.\"",["Open the system information tool","Run a defragmenter","Format the drive","Turn on the firewall"],0,"System information utilities list the hardware specification."],
+ ["P","TICKET: \"My game takes ages to load levels from my hard disk, but runs smoothly once loaded.\"",["Replace the HDD with an SSD","Add a second monitor","Install anti-spyware","Buy a faster printer"],0,"Loading is limited by secondary storage speed, and SSDs read far faster."],
+ ["P","TICKET: \"Video exports are slow. RAM is half free but the CPU is at 100% the whole time.\"",["Upgrade the CPU","Add more RAM","Defragment the SSD","Install a webcam"],0,"The CPU is the bottleneck; extra RAM won't help when RAM isn't full."],
+ ["P","TICKET: \"I have music, a browser and a game running at once. Who decides which one gets the CPU?\"",["The operating system schedules CPU time","The BIOS","The monitor","Each program fights for it"],0,"Managing the CPU and memory is a core OS function."],
+ ["P","TICKET: \"Should I defragment my brand-new SSD laptop to speed it up?\"",["No. SSDs have no moving read head, so defragmenting doesn't help and adds wear","Yes, every day","Yes, but only with antivirus on","No, format it instead"],0,"Defragmentation benefits magnetic disks only."],
+];
+
+const MODES={sort:{name:"Sort Sprint",L:"S",n:25,limit:8},quiz:{name:"Quick-Fire Quiz",L:"Q",n:20,limit:15},scen:{name:"Storage Showdown",L:"T",n:10,limit:15},help:{name:"Help Desk",L:"H",n:12,limit:20},arc:{name:"Virus Chase",L:"A",n:99,limit:20}};
+const BY_L={};Object.entries(MODES).forEach(([k,v])=>BY_L[v.L]=k);
+const norm=s=>String(s).toLowerCase().replace(/[^a-z0-9]/g,"");
+function chk(name,L,score,right){let h=2166136261;const s=norm(name)+"|"+L+"|"+score+"|"+right+"|bsc-y9";for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}return h.toString(36).toUpperCase().padStart(4,"0").slice(-4)}
+function makeCode(name,L,score,right){return `${L}-${score}-${right}-${chk(name,L,score,right)}`}
+function loadBests(){try{return JSON.parse(localStorage.getItem("bsc_best")||"{}")}catch(e){return{}}}
+function saveBest(mode,score){const b=loadBests();if(!b[mode]||score>b[mode]){b[mode]=score;try{localStorage.setItem("bsc_best",JSON.stringify(b))}catch(e){}return true}return false}
+const UNLOCK_PCT=75, TEACHER_KEY="BOOT9";
+function loadAcc(){try{return JSON.parse(localStorage.getItem("bsc_acc")||"{}")}catch(e){return{}}}
+function saveAcc(mode,r,t){const a=loadAcc();if(!a[mode]||r/t>a[mode].r/a[mode].t){a[mode]={r,t};try{localStorage.setItem("bsc_acc",JSON.stringify(a))}catch(e){}}}
+function unlockState(){
+  const a=loadAcc();let r=0,t=0,done=0;
+  ["sort","quiz","scen","help"].forEach(m=>{if(a[m]){r+=a[m].r;t+=a[m].t;done++}});
+  const pct=t?Math.round(r/t*100):0;let forced=false;try{forced=localStorage.getItem("bsc_unlock")==="1"}catch(e){}
+  return{a,done,pct,open:forced||(done===4&&pct>=UNLOCK_PCT)};
+}
+function bestsLine(){const b=loadBests();const parts=Object.entries(MODES).filter(([k])=>b[k]).map(([k,v])=>`${v.name} ${b[k]}`);return parts.length?`<p class="note">Your best scores on this computer: ${esc(parts.join(" · "))}</p>`:""}
+
+/* ---------- state ---------- */
+let player="";try{player=localStorage.getItem("bsc_name")||""}catch(e){}
+let G=null, tick=null, keyHandler=null;
+
+function setWho(){$("#who").textContent=player?("USER: "+player.toUpperCase()):"KS3 Computing"}
+function clearTimer(){if(tick){clearInterval(tick);tick=null}}
+
+/* ---------- menu ---------- */
+function menu(){
+  clearTimer();G=null;setWho();
+  app.innerHTML=`
+  <div class="post" id="post"></div>
+  <h1>Boot Sequence Challenge</h1>
+  <p class="lede">Three games on computer hardware, software and storage. Every right answer earns points; quick answers and streaks earn bonus points. Can you reach Platinum?</p>
+  <label class="f" for="nm">Player name
+    <input type="text" id="nm" maxlength="20" autocomplete="off" placeholder="First name + initial" value="${esc(player)}"></label>
+  <div class="section-label">Select boot device</div>
+  <div class="modes">
+    <button class="mode" data-m="sort"><span class="k">1. Sort Sprint</span><span class="d">An item appears. Send it to the right category before the clock runs out.</span><span class="spec">Input/output · system/application · storage types</span></button>
+    <button class="mode" data-m="quiz"><span class="k">2. Quick-Fire Quiz</span><span class="d">20 questions climbing from Bronze up to Platinum. 15 seconds each.</span><span class="spec">CPU · RAM · BIOS · OS · utilities</span></button>
+    <button class="mode" data-m="scen"><span class="k">3. Storage Showdown</span><span class="d">Real situations. Pick the best storage device for the job.</span><span class="spec">Capacity · speed · portability · cost</span></button>
+    <button class="mode" data-m="help"><span class="k">4. Help Desk</span><span class="d">You're on the IT support line. Read each ticket and pick the fix.</span><span class="spec">Utilities · drivers · upgrades · OS jobs</span></button>
+  </div>
+  ${(()=>{const u=unlockState();return `<button class="mode arc ${u.open?"":"locked"}" data-m="arc"><span class="k">5. Virus Chase ${u.open?"":"· LOCKED"}</span><span class="d">${u.open?"Arcade maze. Collect the data bits and dodge the viruses. Get caught and you must answer a question to respawn.":`Bonus arcade game. Unlocks when you finish games 1–4 with ${UNLOCK_PCT}% or more of all questions right.`}</span><span class="spec">${u.open?"UNLOCKED":`Progress: ${u.done}/4 games · ${u.pct}% correct`}</span></button>`})()}
+  <div class="tiers"><div class="t-B">BRONZE · 0+</div><div class="t-S">SILVER · 40%</div><div class="t-G">GOLD · 65%</div><div class="t-P">PLATINUM · 85%</div></div>
+  ${bestsLine()}
+  <button class="teach-link" id="tch">Teacher: open the class leaderboard</button>`;
+  $("#tch").onclick=teacher;
+  const lines=["Award BIOS v9.0, Year 9 Edition","Memory test ........ <span class='okw'>OK</span>","Detecting storage ... <span class='okw'>OK</span>","Loading pupils ..... <span class='okw'>READY</span>"];
+  const post=$("#post");let i=0;
+  const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduce){post.innerHTML=lines.join("\n")}else{const t=setInterval(()=>{post.innerHTML=lines.slice(0,++i).join("\n");if(i>=lines.length)clearInterval(t)},260)}
+  app.querySelectorAll(".mode").forEach(b=>b.onclick=()=>{
+    const v=$("#nm").value.trim();
+    if(!v){$("#nm").focus();$("#nm").placeholder="Enter your name first";return}
+    player=v;try{localStorage.setItem("bsc_name",v)}catch(e){}
+    if(b.dataset.m==="arc")return unlockState().open?arcade():lockedScreen();
+    start(b.dataset.m);
+  });
+  keyHandler=null;
+}
+
+/* ---------- build rounds ---------- */
+function start(mode){
+  let rounds=[];
+  if(mode==="sort"){
+    SORTS.forEach(s=>shuffle(s.items).slice(0,5).forEach(it=>rounds.push({kind:"sort",set:s,item:it})));
+    // keep sets grouped but shuffled order of sets
+    const bySet={};rounds.forEach(r=>(bySet[r.set.title]=bySet[r.set.title]||[]).push(r));
+    rounds=shuffle(Object.values(bySet)).flat();
+  } else {
+    const bank={quiz:QUIZ,scen:SCEN,help:HELP}[mode];
+    const n=MODES[mode].n;
+    const order={B:0,S:1,G:2,P:3};
+    const take=(t,k)=>shuffle(bank.filter(q=>q[0]===t)).slice(0,k);
+    let pick=mode==="quiz"?[...take("B",5),...take("S",6),...take("G",6),...take("P",3)]
+            :mode==="help"?[...take("B",3),...take("S",4),...take("G",3),...take("P",2)]:bank.slice();
+    pick.sort((a,b)=>order[a[0]]-order[b[0]]);
+    rounds=pick.slice(0,n).map(q=>{const opts=shuffle(q[2].map((t,i)=>({t,ok:i===q[3]})));return{kind:"mc",tier:q[0],q:q[1],opts,why:q[4]}});
+  }
+  G={mode,rounds,i:0,score:0,streak:0,best:0,right:0,missed:[],limit:MODES[mode].limit};
+  next();
+}
+
+function hud(){
+  const r=G.rounds[G.i];
+  return `<div class="hud"><span>Q <span class="v">${G.i+1}/${G.rounds.length}</span></span><span>Score <span class="v pop" id="sc">${G.score}</span></span><span>Streak <span class="v">${G.streak}</span></span></div>
+  <div class="timer" id="tm"><i id="tb"></i></div>`;
+}
+
+function runTimer(onOut){
+  clearTimer();const total=G.limit*1000;const t0=Date.now();
+  tick=setInterval(()=>{const left=Math.max(0,total-(Date.now()-t0));G.left=left/1000;
+    const tb=$("#tb");if(tb){tb.style.width=(left/total*100)+"%";$("#tm").classList.toggle("low",left<total*.3)}
+    if(left<=0){clearTimer();onOut()}},100);
+  G.left=G.limit;
+}
+
+function next(){
+  if(G.i>=G.rounds.length)return results();
+  const r=G.rounds[G.i];G.locked=false;
+  if(r.kind==="sort"){
+    app.innerHTML=hud()+`<div class="card"><span class="tag t-S">${esc(r.set.title)}</span>
+      <div class="item">${esc(r.item[0])}</div>
+      <div class="bins">${r.set.bins.map((b,i)=>`<button class="bin" data-i="${i}">${esc(b)}<small>key ${i+1}</small></button>`).join("")}</div>
+      <div class="fb" id="fb">Pick a category.</div></div>
+      <div class="row"><button class="btn" id="nx" hidden>Next ▸</button><button class="btn ghost" id="qt">Quit</button></div>`;
+    const btns=[...app.querySelectorAll(".bin")];
+    btns.forEach(b=>b.onclick=()=>answer(+b.dataset.i,btns));
+    runTimer(()=>answer(-1,btns));
+  } else {
+    app.innerHTML=hud()+`<div class="card"><span class="tag t-${r.tier}">${TIERS[r.tier]}</span>
+      <p class="q">${esc(r.q)}</p>
+      <div class="opts">${r.opts.map((o,i)=>`<button class="opt" data-i="${i}"><span class="n">${i+1}</span><span>${esc(o.t)}</span></button>`).join("")}</div>
+      <div class="fb" id="fb"></div></div>
+      <div class="row"><button class="btn" id="nx" hidden>Next ▸</button><button class="btn ghost" id="qt">Quit</button></div>`;
+    const btns=[...app.querySelectorAll(".opt")];
+    btns.forEach(b=>b.onclick=()=>answer(+b.dataset.i,btns));
+    runTimer(()=>answer(-1,btns));
+  }
+  $("#nx").onclick=()=>{G.i++;next()};
+  $("#qt").onclick=menu;
+  keyHandler=e=>{
+    if(e.key==="Escape"){menu();return}
+    if(G&&G.locked&&e.key==="Enter"){e.preventDefault();G.i++;next();return}
+    const n=parseInt(e.key,10);const btns=[...app.querySelectorAll(".bin,.opt")];
+    if(n>=1&&n<=btns.length&&!G.locked)answer(n-1,btns);
+  };
+}
+
+function answer(i,btns){
+  if(G.locked)return;G.locked=true;clearTimer();
+  const r=G.rounds[G.i];
+  const correctIdx=r.kind==="sort"?r.item[1]:r.opts.findIndex(o=>o.ok);
+  const correctText=r.kind==="sort"?r.set.bins[correctIdx]:r.opts[correctIdx].t;
+  const why=r.kind==="sort"?r.item[2]:r.why;
+  btns.forEach(b=>b.disabled=true);
+  btns[correctIdx].classList.add("right");
+  const fb=$("#fb");
+  if(i===correctIdx){
+    G.streak++;G.best=Math.max(G.best,G.streak);G.right++;
+    const speed=Math.round(50*(G.left/G.limit));const bonus=Math.min(G.streak-1,5)*10;
+    const tierBonus=r.tier?{B:0,S:10,G:20,P:40}[r.tier]:0;
+    const pts=100+speed+bonus+tierBonus;G.score+=pts;
+    fb.innerHTML=`<b class="g">Correct +${pts}</b>${G.streak>2?` <span class="combo">×${G.streak} streak</span>`:""}<br>${esc(why)}`;
+  } else {
+    G.streak=0;if(i>=0)btns[i].classList.add("wrong");
+    G.missed.push((r.kind==="sort"?r.item[0]+" → ":r.q+" → ")+correctText);
+    fb.innerHTML=`<b class="r">${i<0?"Time's up.":"Not quite."}</b> Answer: <b>${esc(correctText)}</b>. ${esc(why)}`;
+  }
+  const sc=$("#sc");if(sc){sc.textContent=G.score;sc.classList.remove("pop");void sc.offsetWidth;sc.classList.add("pop")}
+  $("#nx").hidden=false;$("#nx").focus();
+}
+
+function results(){
+  clearTimer();
+  const pct=Math.round(G.right/G.rounds.length*100);
+  const tier=pct>=85?"P":pct>=65?"G":pct>=40?"S":"B";
+  const tips={B:"Look again at the categories you missed, then try once more.",S:"Solid. Focus on the items in the review list.",G:"Strong work. Try a different game to chase Platinum.",P:"Platinum. Challenge the person next to you to beat this."};
+  const code=makeCode(player,MODES[G.mode].L,G.score,G.right);
+  const wasOpen=unlockState().open;
+  const pb=saveBest(G.mode,G.score);saveAcc(G.mode,G.right,G.rounds.length);
+  const nowOpen=!wasOpen&&unlockState().open;
+  app.innerHTML=`<div class="section-label">${esc(MODES[G.mode].name)} complete · ${esc(player)}</div>
+  <div class="rank t-${tier}">${TIERS[tier].toUpperCase()}</div>
+  <div class="hud"><span>Score <span class="v">${G.score}</span></span><span>Correct <span class="v">${G.right}/${G.rounds.length}</span></span><span>Best streak <span class="v">${G.best}</span></span>${pb?`<span class="v">New personal best</span>`:""}</div>
+  <p>${tips[tier]}</p>
+  ${nowOpen?`<p class="unlock-msg">BONUS GAME UNLOCKED: Virus Chase is now open on the main menu.</p>`:(()=>{const u=unlockState();return u.open?"":`<p class="note">Virus Chase progress: ${u.done}/4 games played · ${u.pct}% correct (needs all 4 and ${UNLOCK_PCT}%+).</p>`})()}
+  <div class="section-label">Your score code · submit it in your teacher's form</div>
+  <div class="coderow"><span class="code" id="cd">${code}</span><button class="btn ghost" id="cp">Copy code</button></div>
+  <p class="note">Submit the same name you typed here (${esc(player)}). Codes are locked to your name and score, so edited codes are flagged.</p>
+  ${G.missed.length?`<div class="section-label">Revise these before Monday</div><div class="review">${G.missed.map(m=>`<div>${esc(m)}</div>`).join("")}</div>`:`<p class="t-P">No mistakes. Perfect boot.</p>`}
+  <div class="row"><button class="btn" id="again">Play again</button><button class="btn ghost" id="home">Choose another game</button></div>`;
+  $("#again").onclick=()=>start(G.mode);$("#home").onclick=menu;
+  $("#cp").onclick=()=>{const b=$("#cp");const done=()=>{b.textContent="Copied"};
+    const sel=()=>{const r=document.createRange();r.selectNodeContents($("#cd"));const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent="Selected: press Ctrl+C"};
+    try{navigator.clipboard.writeText(code).then(done,sel)}catch(e){sel()}};
+  keyHandler=e=>{if(e.key==="Escape")menu()};
+}
+
+/* ---------- teacher leaderboard ---------- */
+function teacher(){
+  clearTimer();G=null;keyHandler=e=>{if(e.key==="Escape")menu()};
+  let saved="";try{saved=localStorage.getItem("bsc_teacher")||""}catch(e){}
+  app.innerHTML=`<h2>Class leaderboard</h2>
+  <ol class="steps">
+    <li>Make a Microsoft Form with two short-answer questions: <b>Name used in the game</b> and <b>Score code</b>. Pupils can submit once per game.</li>
+    <li>In Forms, go to Responses, then Open results in Excel.</li>
+    <li>Copy the Name and Score code columns and paste them below. Any layout works, one submission per line.</li>
+  </ol>
+  <label class="f" for="paste">Pasted responses
+  <textarea id="paste" spellcheck="false" placeholder="Aisha K	Q-2480-18-7F2M&#10;Ben T	H-1520-11-03QX">${esc(saved)}</textarea></label>
+  <div class="row"><button class="btn" id="build">Update leaderboard</button><button class="btn ghost" id="proj">Projector view</button><button class="btn ghost" id="demo">Load example rows</button><button class="btn ghost" id="back">Back to games</button></div>
+  <div id="board"></div>`;
+  const ta=$("#paste");
+  const build=()=>{try{localStorage.setItem("bsc_teacher",ta.value)}catch(e){};render(ta.value)};
+  $("#build").onclick=build;
+  $("#back").onclick=menu;
+  $("#proj").onclick=()=>{document.body.classList.toggle("proj");$("#proj").textContent=document.body.classList.contains("proj")?"Normal view":"Projector view"};
+  $("#demo").onclick=()=>{const ex=[["Example Pupil A","Q",2480,18],["Example Pupil A","H",1430,10],["Example Pupil B","S",3150,23],["Example Pupil C","T",1290,9],["Example Pupil C","Q",1610,13]];
+    ta.value=ex.map(r=>r[0]+"\t"+makeCode(r[0],r[1],r[2],r[3])).join("\n")+"\nExample Pupil D\tQ-9999-20-ZZZZ";build()};
+  if(saved)render(saved);
+}
+
+function render(text){
+  const re=/\b([SQTHA])-(\d{1,5})-(\d{1,2})-([A-Z0-9]{4})\b/i;
+  const people={},bad=[];
+  text.split(/\r?\n/).forEach(line=>{
+    if(!line.trim())return;const m=line.match(re);
+    if(!m){if(!/name|code/i.test(line))bad.push(line.trim());return}
+    const name=line.replace(m[0],"").replace(/[\t,;"]+/g," ").trim()||"Unknown";
+    const L=m[1].toUpperCase(),score=+m[2],right=+m[3],mode=BY_L[L];
+    const ok=chk(name,L,score,right)===m[4].toUpperCase()&&right<=MODES[mode].n;
+    if(!ok){bad.push(`${name}: ${m[0].toUpperCase()} (code does not match this name or was edited)`);return}
+    const k=norm(name);const p=people[k]||(people[k]={name,best:{},right:{}});
+    if(!p.best[mode]||score>p.best[mode]){p.best[mode]=score;p.right[mode]=right}
+  });
+  const list=Object.values(people).map(p=>{p.total=Object.values(p.best).reduce((a,b)=>a+b,0);
+    const qm=Object.keys(p.best).filter(m=>m!=="arc");
+    const tot=qm.reduce((a,m)=>a+MODES[m].n,0),r=qm.reduce((a,m)=>a+p.right[m],0);
+    p.pct=tot?Math.round(r/tot*100):0;p.tier=p.pct>=85?"P":p.pct>=65?"G":p.pct>=40?"S":"B";return p}).sort((a,b)=>b.total-a.total);
+  const cell=(p,m)=>p.best[m]?`${p.best[m]}`:"–";
+  $("#board").innerHTML=list.length?`
+  <div class="tbl-wrap"><table class="lb"><thead><tr><th>#</th><th>Pupil</th><th>Sort</th><th>Quiz</th><th>Storage</th><th>Help Desk</th><th>Virus Chase</th><th>Total</th><th>Accuracy</th></tr></thead><tbody>
+  ${list.map((p,i)=>`<tr class="${i<3?"top"+(i+1):""}"><td class="pos">${i+1}</td><td>${esc(p.name)}</td><td class="n">${cell(p,"sort")}</td><td class="n">${cell(p,"quiz")}</td><td class="n">${cell(p,"scen")}</td><td class="n">${cell(p,"help")}</td><td class="n">${cell(p,"arc")}</td><td class="n"><b>${p.total}</b></td><td class="t-${p.tier}">${TIERS[p.tier]} · ${p.pct}%</td></tr>`).join("")}
+  </tbody></table></div>
+  <p class="note">Total adds each pupil's best score in every game they played. Accuracy across those games sets the tier. Pupils at Bronze are your priority for Monday.</p>`
+  :`<p class="note">No valid score codes yet. Paste responses above, or load the example rows to see how it works.</p>`;
+  if(bad.length)$("#board").insertAdjacentHTML("beforeend",`<div class="section-label">Flagged · check these</div><div class="review">${bad.map(b=>`<div>${esc(b)}</div>`).join("")}</div>`);
+}
+
+/* ---------- locked screen ---------- */
+function lockedScreen(){
+  clearTimer();G=null;keyHandler=e=>{if(e.key==="Escape")menu()};
+  const u=unlockState();
+  const card=m=>{const a=u.a[m];return a?`<div class="done"><span class="note">${MODES[m].name}</span><b>${Math.round(a.r/a.t*100)}%</b><span class="note">Best run ${a.r}/${a.t}</span></div>`:`<div class="todo"><span class="note">${MODES[m].name}</span><b>Not played</b><span class="note">Play it from the menu</span></div>`};
+  app.innerHTML=`<h2>Virus Chase is locked</h2>
+  <p>Finish all four games, then get ${UNLOCK_PCT}% or more of all your questions right. Your best run of each game counts.</p>
+  <div class="prog">${["sort","quiz","scen","help"].map(card).join("")}</div>
+  <div class="hud"><span>Games done <span class="v">${u.done}/4</span></span><span>Overall <span class="v">${u.pct}%</span></span><span>Target <span class="v">${UNLOCK_PCT}%</span></span></div>
+  <div class="row"><button class="btn" id="back">Back to games</button></div>
+  <label class="f" for="tk">Teacher unlock code
+  <input type="text" id="tk" autocomplete="off" maxlength="12"></label>
+  <div class="row"><button class="btn ghost" id="tku">Unlock</button><span class="note" id="tkm"></span></div>`;
+  $("#back").onclick=menu;
+  $("#tku").onclick=()=>{if($("#tk").value.trim().toUpperCase()===TEACHER_KEY){try{localStorage.setItem("bsc_unlock","1")}catch(e){}arcade()}else{$("#tkm").textContent="That code isn't right. Ask your teacher."}};
+}
+
+/* ---------- Virus Chase (arcade) ---------- */
+const MAZE=["###################","#........#........#","#o##.###.#.###.##o#","#.................#","#.##.#.#####.#.##.#","#....#...#...#....#","####.### # ###.####","   #.#   E   #.#   ","####.# ##### #.####","    .  #   #  .    ","####.# ##### #.####","   #.#       #.#   ","####.# ##### #.####","#........#........#","#.##.###.#.###.##.#","#o.#.....P.....#.o#","##.#.#.#####.#.#.##","#....#...#...#....#","#.######.#.######.#","#.................#","###################"];
+const VOID=new Set(["7,0","7,1","7,2","7,16","7,17","7,18","11,0","11,1","11,2","11,16","11,17","11,18","9,8","9,9","9,10"]);
+const VCOL=["#ff5d73","#ff9f43","#d980ff","#ff6fb5","#f25f3a","#c2ff5c","#ff4fd8","#ffb3b3"];
+
+function arcade(){
+  clearTimer();G=null;
+  const COLS=19,ROWS=MAZE.length,T=24,RAMP=8,MAXV=8;
+  const DIRS={u:{x:0,y:-1},d:{x:0,y:1},l:{x:-1,y:0},r:{x:1,y:0}};
+  app.innerHTML=`<div class="hud" id="ahud"></div>
+  <div class="arena"><canvas id="cv" aria-label="Virus Chase maze game"></canvas><div class="ov" id="ov" hidden></div></div>
+  <div class="legend"><span><i style="background:#ffe14d"></i>Data bit +10</span><span><i style="background:#5ee08a;border-radius:50%"></i>Antivirus: zap viruses for 6 s</span><span><i style="background:#ff5d73;border-radius:50%"></i>Virus: touch one and you must answer to respawn</span></div>
+  <div class="pad"><button class="u" data-d="u" aria-label="Up">▲</button><button class="l" data-d="l" aria-label="Left">◀</button><button class="d" data-d="d" aria-label="Down">▼</button><button class="r" data-d="r" aria-label="Right">▶</button></div>
+  <div class="row"><button class="btn ghost" id="qt">Quit to menu</button></div>`;
+  const cv=$("#cv"),ov=$("#ov"),ctx=cv.getContext("2d");
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  cv.width=COLS*T*dpr;cv.height=ROWS*T*dpr;ctx.scale(dpr,dpr);
+  let grid,dotsLeft,start,spawn;
+  function loadMaze(){grid=MAZE.map(r=>r.split(""));dotsLeft=0;
+    grid.forEach((r,y)=>r.forEach((c,x)=>{if(c==="P"){start={x,y};r[x]=" "}if(c==="E"){spawn={x,y};r[x]=" "}if(c==="."||c==="o")dotsLeft++}))}
+  loadMaze();
+  const wrapX=x=>(x+COLS)%COLS;
+  const walk=(x,y)=>y>=0&&y<ROWS&&grid[y][wrapX(x)]!=="#"&&!VOID.has(y+","+wrapX(x));
+  const S={score:0,lives:3,level:1,time:0,correct:0,asked:0,missed:[],state:"ready",fright:0,inv:0,slowT:0,nextSpawn:20,queue:shuffle([...QUIZ,...SCEN,...HELP])};
+  const pc={x:start.x,y:start.y,tx:start.x,ty:start.y,dir:null,next:null};
+  const vs=[];
+  function addVirus(){vs.push({x:spawn.x,y:spawn.y,tx:spawn.x,ty:spawn.y,dir:null,dead:0,c:VCOL[vs.length%VCOL.length]})}
+  addVirus();addVirus();
+
+  function step(e,speed,dt,decide){
+    let dist=speed*dt,g=0;
+    while(dist>1e-6&&g++<6){
+      if(e.x===e.tx&&e.y===e.ty){
+        decide(e);if(!e.dir)return;
+        const nx=e.x+e.dir.x,ny=e.y+e.dir.y;
+        if(!walk(nx,ny)){e.dir=null;return}
+        e.tx=nx;e.ty=ny;
+      }
+      const dx=e.tx-e.x,dy=e.ty-e.y,d=Math.abs(dx)+Math.abs(dy);
+      if(d<=dist){e.x=e.tx;e.y=e.ty;dist-=d;if(e.x<0)e.x=e.tx=COLS-1;else if(e.x>=COLS)e.x=e.tx=0}
+      else{e.x+=Math.sign(dx)*dist;e.y+=Math.sign(dy)*dist;dist=0}
+    }
+  }
+  function playerDecide(e){
+    const c=grid[e.y][e.x];
+    if(c==="."){grid[e.y][e.x]=" ";S.score+=10;dotsLeft--}
+    else if(c==="o"){grid[e.y][e.x]=" ";S.score+=50;dotsLeft--;S.fright=6;vs.forEach(v=>{if(v.dir&&(v.x!==v.tx||v.y!==v.ty)){v.tx-=v.dir.x;v.ty-=v.dir.y;v.dir={x:-v.dir.x,y:-v.dir.y}}})}
+    if(dotsLeft<=0){levelUp();return}
+    if(e.next&&walk(e.x+e.next.x,e.y+e.next.y))e.dir=e.next;
+    else if(!(e.dir&&walk(e.x+e.dir.x,e.y+e.dir.y)))e.dir=null;
+  }
+  function virusDecide(e){
+    let opts=Object.values(DIRS).filter(d=>walk(e.x+d.x,e.y+d.y)&&!(e.dir&&d.x===-e.dir.x&&d.y===-e.dir.y));
+    if(!opts.length)opts=Object.values(DIRS).filter(d=>walk(e.x+d.x,e.y+d.y));
+    const dd=d=>(e.x+d.x-pc.x)**2+(e.y+d.y-pc.y)**2;
+    const chase=Math.min(.9,.45+S.time*.004+S.level*.05);
+    let pick;
+    if(S.fright>0)pick=Math.random()<.7?opts.reduce((a,b)=>dd(b)>dd(a)?b:a):opts[Math.random()*opts.length|0];
+    else pick=Math.random()<chase?opts.reduce((a,b)=>dd(b)<dd(a)?b:a):opts[Math.random()*opts.length|0];
+    e.dir=pick;
+  }
+  function virusSpeed(){
+    const base=Math.min(4.7,2.7+S.time*.012+(S.level-1)*.3);
+    const ramp=S.slowT<RAMP?.35+.65*(S.slowT/RAMP):1;
+    return base*ramp*(S.fright>0?.55:1);
+  }
+
+  function update(dt){
+    S.time+=dt;S.slowT+=dt;
+    if(S.fright>0)S.fright=Math.max(0,S.fright-dt);
+    if(S.inv>0)S.inv=Math.max(0,S.inv-dt);
+    S.nextSpawn-=dt;
+    if(S.nextSpawn<=0){if(vs.length<MAXV)addVirus();S.nextSpawn=Math.max(10,20-S.level*2)}
+    step(pc,5,dt,playerDecide);
+    if(S.state!=="play")return;
+    const vsp=virusSpeed();
+    vs.forEach(v=>{
+      if(v.dead>0){v.dead-=dt;return}
+      step(v,vsp,dt,virusDecide);
+      if(Math.abs(v.x-pc.x)+Math.abs(v.y-pc.y)<.7){
+        if(S.fright>0){S.score+=200;v.dead=4;v.x=v.tx=spawn.x;v.y=v.ty=spawn.y;v.dir=null}
+        else if(S.inv<=0&&S.state==="play")caught();
+      }
+    });
+    hudUpdate();
+  }
+
+  let lastHud="";
+  function hudUpdate(){
+    const slowed=S.slowT<RAMP;
+    const h=`<span>Score <span class="v">${S.score}</span></span><span>Lives <span class="v">${"■".repeat(S.lives)||"0"}</span></span><span>Level <span class="v">${S.level}</span></span><span>Viruses <span class="v">${vs.length}</span></span><span>${S.fright>0?`<span style="color:var(--ok)">ANTIVIRUS ${Math.ceil(S.fright)}s</span>`:slowed?`<span style="color:var(--plat)">Viruses slowed</span>`:`Next virus <span class="v">${Math.max(0,Math.ceil(S.nextSpawn))}s</span>`}</span>`;
+    if(h!==lastHud){$("#ahud").innerHTML=h;lastHud=h}
+  }
+
+  function show(html){ov.innerHTML=html;ov.hidden=false}
+  function hide(){ov.hidden=true;ov.innerHTML=""}
+
+  function caught(){
+    S.state="question";pc.dir=null;pc.next=null;
+    if(!S.queue.length)S.queue=shuffle([...QUIZ,...SCEN,...HELP]);
+    const q=S.queue.pop();S.asked++;
+    const opts=shuffle(q[2].map((t,i)=>({t,ok:i===q[3]})));
+    show(`<h2 style="color:var(--bad)">Virus detected</h2>
+      <p class="note">Answer correctly to restore your system. A wrong answer costs a life.</p>
+      <span class="tag t-${q[0]}">${TIERS[q[0]]}</span>
+      <p class="q">${esc(q[1])}</p>
+      <div class="timer" id="atm"><i id="atb"></i></div>
+      <div class="opts">${opts.map((o,i)=>`<button class="opt" data-i="${i}"><span class="n">${i+1}</span><span>${esc(o.t)}</span></button>`).join("")}</div>
+      <div class="fb" id="afb"></div>
+      <div class="row"><button class="btn" id="go" hidden>Respawn ▸</button></div>`);
+    const btns=[...ov.querySelectorAll(".opt")];let done=false;
+    const answer=i=>{
+      if(done)return;done=true;clearTimer();
+      const ci=opts.findIndex(o=>o.ok);btns.forEach(b=>b.disabled=true);btns[ci].classList.add("right");
+      if(i===ci){S.correct++;S.score+=100;$("#afb").innerHTML=`<b class="g">Correct +100. System restored.</b> ${esc(q[4])}`}
+      else{if(i>=0)btns[i].classList.add("wrong");S.lives--;S.missed.push(q[1].replace(/^TICKET: /,"")+" → "+opts[ci].t);
+        $("#afb").innerHTML=`<b class="r">${i<0?"Time's up.":"Not quite."} −1 life.</b> Answer: <b>${esc(opts[ci].t)}</b>. ${esc(q[4])}`}
+      const go=$("#go");go.hidden=false;if(S.lives<=0)go.textContent="See results ▸";go.focus();
+      go.onclick=()=>S.lives<=0?gameOver():respawn();
+      S.awaiting=true;
+    };
+    S.answer=answer;S.awaiting=false;
+    btns.forEach(b=>b.onclick=()=>answer(+b.dataset.i));
+    const total=20000,t0=Date.now();
+    clearTimer();tick=setInterval(()=>{const left=Math.max(0,total-(Date.now()-t0));const b=$("#atb");if(b){b.style.width=(left/total*100)+"%";$("#atm").classList.toggle("low",left<6000)}if(left<=0)answer(-1)},100);
+  }
+  function respawn(){
+    hide();S.awaiting=false;S.answer=null;
+    pc.x=pc.tx=start.x;pc.y=pc.ty=start.y;pc.dir=null;pc.next=null;
+    vs.forEach(v=>{if(Math.abs(v.x-start.x)+Math.abs(v.y-start.y)<6){v.x=v.tx=spawn.x;v.y=v.ty=spawn.y;v.dir=null}});
+    S.slowT=0;S.inv=2.5;S.state="play";
+  }
+  function levelUp(){
+    S.level++;S.score+=500;loadMaze();
+    S.state="level";pc.dir=null;pc.next=null;
+    vs.forEach(v=>{v.x=v.tx=spawn.x;v.y=v.ty=spawn.y;v.dir=null;v.dead=0});
+    show(`<h2>Level ${S.level - 1} cleared</h2><p>+500 bonus. The maze is refilled, the viruses get faster and new ones arrive sooner.</p><div class="row"><button class="btn" id="go">Start level ${S.level} ▸</button></div>`);
+    S.awaiting=true;const go=$("#go");go.focus();go.onclick=respawn;
+  }
+  function gameOver(){
+    S.state="over";clearTimer();
+    const right=Math.min(99,S.correct);
+    const code=makeCode(player,"A",S.score,right);
+    const pb=saveBest("arc",S.score);
+    app.innerHTML=`<div class="section-label">Virus Chase · game over · ${esc(player)}</div>
+    <div class="big">${S.score} points</div>
+    <div class="hud"><span>Level <span class="v">${S.level}</span></span><span>Survived <span class="v">${Math.floor(S.time/60)}m ${String(Math.floor(S.time%60)).padStart(2,"0")}s</span></span><span>Respawn questions <span class="v">${S.correct}/${S.asked}</span></span>${pb?`<span class="v">New personal best</span>`:""}</div>
+    <div class="section-label">Your score code · submit it in your teacher's form</div>
+    <div class="coderow"><span class="code" id="cd">${code}</span><button class="btn ghost" id="cp">Copy code</button></div>
+    ${S.missed.length?`<div class="section-label">Revise these before Monday</div><div class="review">${S.missed.map(m=>`<div>${esc(m)}</div>`).join("")}</div>`:`<p class="t-P">Every respawn question right.</p>`}
+    <div class="row"><button class="btn" id="again">Play again</button><button class="btn ghost" id="home">Back to menu</button></div>`;
+    $("#again").onclick=arcade;$("#home").onclick=menu;
+    $("#cp").onclick=()=>{const b=$("#cp");const sel=()=>{const r=document.createRange();r.selectNodeContents($("#cd"));const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent="Selected: press Ctrl+C"};try{navigator.clipboard.writeText(code).then(()=>b.textContent="Copied",sel)}catch(e){sel()}};
+    keyHandler=e=>{if(e.key==="Escape")menu()};
+  }
+
+  function setDir(k){
+    const nd=DIRS[k];if(!nd)return;
+    if(S.state==="ready"){hide();S.state="play"}
+    if(S.state!=="play")return;
+    pc.next=nd;
+    if(pc.dir&&nd.x===-pc.dir.x&&nd.y===-pc.dir.y&&!(pc.x===pc.tx&&pc.y===pc.ty)){pc.tx+=nd.x;pc.ty+=nd.y;pc.dir=nd}
+  }
+  const KEYS={ArrowUp:"u",ArrowDown:"d",ArrowLeft:"l",ArrowRight:"r",w:"u",s:"d",a:"l",d:"r",W:"u",S:"d",A:"l",D:"r"};
+  keyHandler=e=>{
+    if(e.key==="Escape"){menu();return}
+    if(KEYS[e.key]&&S.state!=="question"){e.preventDefault();setDir(KEYS[e.key]);return}
+    if(S.state==="question"&&!S.awaiting){const n=parseInt(e.key,10);if(n>=1&&n<=4&&S.answer)S.answer(n-1)}
+  };
+  app.querySelectorAll(".pad button").forEach(b=>b.addEventListener("pointerdown",ev=>{ev.preventDefault();setDir(b.dataset.d)}));
+  let sw=null;
+  cv.addEventListener("pointerdown",e=>{sw={x:e.clientX,y:e.clientY}});
+  cv.addEventListener("pointerup",e=>{if(!sw)return;const dx=e.clientX-sw.x,dy=e.clientY-sw.y;sw=null;
+    if(Math.max(Math.abs(dx),Math.abs(dy))<20){if(S.state==="ready"){hide();S.state="play"}return}
+    setDir(Math.abs(dx)>Math.abs(dy)?(dx>0?"r":"l"):(dy>0?"d":"u"))});
+  $("#qt").onclick=menu;
+
+  /* drawing */
+  function draw(now){
+    ctx.fillStyle="#050f38";ctx.fillRect(0,0,COLS*T,ROWS*T);
+    // walls as circuit traces
+    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+      if(grid[y][x]!=="#")continue;
+      const px=x*T,py=y*T;
+      ctx.fillStyle="#0f2a86";ctx.fillRect(px,py,T,T);
+      ctx.strokeStyle="#7f9bff";ctx.lineWidth=2;ctx.beginPath();
+      const open=(nx,ny)=>nx>=0&&ny>=0&&nx<COLS&&ny<ROWS&&grid[ny][nx]!=="#"&&!VOID.has(ny+","+nx);
+      if(open(x,y-1)){ctx.moveTo(px,py+1);ctx.lineTo(px+T,py+1)}
+      if(open(x,y+1)){ctx.moveTo(px,py+T-1);ctx.lineTo(px+T,py+T-1)}
+      if(open(x-1,y)){ctx.moveTo(px+1,py);ctx.lineTo(px+1,py+T)}
+      if(open(x+1,y)){ctx.moveTo(px+T-1,py);ctx.lineTo(px+T-1,py+T)}
+      ctx.stroke();
+      if((x*7+y*3)%11===0){ctx.fillStyle="#3c5fd6";ctx.fillRect(px+T/2-2,py+T/2-2,4,4)}
+    }
+    // dots
+    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+      const c=grid[y][x],cx=x*T+T/2,cy=y*T+T/2;
+      if(c==="."){ctx.fillStyle="#ffe14d";ctx.fillRect(cx-2.5,cy-2.5,5,5)}
+      else if(c==="o"){const r=7+Math.sin(now/180)*1.2;ctx.fillStyle="#5ee08a";ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle="#04301a";ctx.font="bold 8px IBM Plex Mono, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("AV",cx,cy+.5)}
+    }
+    // viruses
+    vs.forEach(v=>{
+      if(v.dead>0)return;
+      const cx=v.x*T+T/2,cy=v.y*T+T/2;
+      const scared=S.fright>0,blink=scared&&S.fright<2&&Math.floor(now/150)%2;
+      const col=scared?(blink?"#ffffff":"#8fb4ff"):v.c;
+      ctx.strokeStyle=col;ctx.lineWidth=2;ctx.beginPath();
+      for(let i=0;i<8;i++){const a=i*Math.PI/4+now/600;ctx.moveTo(cx+Math.cos(a)*7,cy+Math.sin(a)*7);ctx.lineTo(cx+Math.cos(a)*11,cy+Math.sin(a)*11)}
+      ctx.stroke();
+      ctx.fillStyle=col;ctx.beginPath();ctx.arc(cx,cy,7.5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="#050f38";ctx.fillRect(cx-4,cy-2,2.5,3);ctx.fillRect(cx+1.5,cy-2,2.5,3);
+      if(scared){ctx.fillRect(cx-4,cy+3,8,1.5)}
+    });
+    // player: a data packet chip
+    if(!(S.inv>0&&Math.floor(now/120)%2)){
+      const cx=pc.x*T+T/2,cy=pc.y*T+T/2;
+      ctx.strokeStyle="#ffe14d";ctx.lineWidth=1.5;ctx.beginPath();
+      for(let i=-1;i<=1;i++){ctx.moveTo(cx+i*4,cy-11);ctx.lineTo(cx+i*4,cy+11);ctx.moveTo(cx-11,cy+i*4);ctx.lineTo(cx+11,cy+i*4)}
+      ctx.stroke();
+      ctx.fillStyle="#ffe14d";ctx.fillRect(cx-8,cy-8,16,16);
+      ctx.fillStyle="#071d63";ctx.fillRect(cx-5,cy-5,10,10);
+      const d=pc.dir||pc.next||DIRS.r;
+      ctx.fillStyle="#ffe14d";ctx.beginPath();
+      ctx.moveTo(cx+d.x*4,cy+d.y*4);ctx.lineTo(cx-d.x*2+d.y*3,cy-d.y*2+d.x*3);ctx.lineTo(cx-d.x*2-d.y*3,cy-d.y*2-d.x*3);ctx.closePath();ctx.fill();
+    }
+  }
+
+  let last=performance.now();
+  function frame(now){
+    if(!cv.isConnected)return;
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    if(S.state==="play")update(dt);
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+  hudUpdate();
+  show(`<h2>Virus Chase</h2>
+    <p>You are a data packet inside the motherboard. Collect every data bit to clear the level.</p>
+    <ul class="steps"><li>Move with the arrow keys, WASD, the on-screen pad or by swiping.</li><li>Green <b>AV</b> chips switch on antivirus for 6 seconds, so you can zap viruses for +200.</li><li>Caught by a virus? Answer a question to respawn. Wrong answers cost a life, and you have 3.</li><li>A new virus arrives every 20 seconds. After you respawn they slow right down, then speed back up.</li></ul>
+    <div class="row"><button class="btn" id="go">Start ▸</button></div>`);
+  $("#go").onclick=()=>{hide();S.state="play"};$("#go").focus();
+  requestAnimationFrame(frame);
+}
+
+document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;keyHandler&&keyHandler(e)});
+menu();
+})();
+</script>
+
+</body></html>
